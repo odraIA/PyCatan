@@ -8,7 +8,7 @@
 #SBATCH --cpus-per-task=4       # Total cores
 #SBATCH -o logs/%x_%j.log       # STDOUT (Usando la carpeta logs para consistencia)
 
-set -euo pipefail
+set -u
 
 # Crear directorios necesarios
 mkdir -p logs runs
@@ -20,16 +20,6 @@ export TOKENIZERS_PARALLELISM=false
 VENV_DIR=".venv_bench"
 python3 -m venv "$VENV_DIR"
 source "$VENV_DIR/bin/activate"
-
-# Instalar dependencias desde requirements.txt
-python -m pip install --upgrade pip
-if ! python -m pip install -r requirements.txt; then
-  echo "[WARN] Instalación directa falló. Reintentando sin dependencias con rutas locales (file://)."
-  CLEAN_REQ="$(mktemp)"
-  grep -vE ' @ file://|^asttokens @|^comm @|^debugpy @|^decorator @|^executing @|^ipykernel @|^ipython @|^ipython_pygments_lexers @|^jedi @|^jupyter_client @|^jupyter_core @|^matplotlib-inline @|^nest_asyncio @|^packaging @|^parso @|^pexpect @|^platformdirs @|^prompt_toolkit @|^psutil @|^ptyprocess @|^pure_eval @|^Pygments @|^python-dateutil @|^pyzmq @|^six @|^stack_data @|^tornado @|^traitlets @|^typing_extensions @|^wcwidth @' requirements.txt > "$CLEAN_REQ"
-  python -m pip install -r "$CLEAN_REQ"
-  rm -f "$CLEAN_REQ"
-fi
 
 echo "==== ENV CHECK ===="
 echo "HOSTNAME=$(hostname)"
