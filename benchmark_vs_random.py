@@ -1,20 +1,64 @@
+import argparse
+import csv
+import importlib
 import os
 import time
-import importlib
 import concurrent.futures
-import csv
 import traceback
+
 from Agents.RandomAgent import RandomAgent as ra
 from Managers.GameDirector import GameDirector
 
-n_matches = 1000
-porcentaje_workers = 0.95
+MATCHES_POR_PERFIL = {
+    "quick": 60,
+    "paper": 600,
+}
+MAX_ROUNDS_DEFAULT = 200
+PORCENTAJE_WORKERS_DEFAULT = 0.95
+PROGRESS_EVERY = 500
 
 # Agentes a evaluar: (ruta_clase, params)
 agentes_a_evaluar = [
-    ("Agents.AdrianHerasAgent.AdrianHerasAgent", None), # Por ejemplo, si quieres evaluar el agente AdrianHerasAgent, que está en Agents.AdrianHerasAgent sin parámetros adicionales
-    # Se pueden poner varios agentes para evaluar y comparar, con y sin parámetros personalizados, por si queremos probar varias configuraciones del mismo agente.
+    ("Agents.GPTAgent.GPTAgent", None),
+    ("Agents.HeuristicAgent.HeuristicAgent", None),
 ]
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Benchmark de agentes contra 3 RandomAgent."
+    )
+    parser.add_argument(
+        "--perfil",
+        choices=tuple(MATCHES_POR_PERFIL.keys()),
+        default="paper",
+        help="Perfil de ejecución. 'paper' usa más partidas.",
+    )
+    parser.add_argument(
+        "--n-matches",
+        type=int,
+        default=None,
+        help="Partidas por posición (anula el perfil).",
+    )
+    parser.add_argument(
+        "--max-rounds",
+        type=int,
+        default=MAX_ROUNDS_DEFAULT,
+        help=f"Máximo de rondas por partida (default={MAX_ROUNDS_DEFAULT}).",
+    )
+    parser.add_argument(
+        "--workers-ratio",
+        type=float,
+        default=PORCENTAJE_WORKERS_DEFAULT,
+        help=f"Fracción de CPU a usar (default={PORCENTAJE_WORKERS_DEFAULT}).",
+    )
+    parser.add_argument(
+        "--output",
+        default="benchmark_vs_random_resultados.csv",
+        help="Ruta del CSV de salida.",
+    )
+    return parser.parse_args()
+
 
 def cargar_agente(ruta_clase):
     modulo, clase = ruta_clase.rsplit(".", 1)
@@ -37,7 +81,14 @@ def crear_clase_agente_configurada_lista(agente_clase, params_list):
     AgenteConfigurado.__name__ = f"{agente_clase.__name__}_ConfiguradoLista"
     return AgenteConfigurado
 
-def simulate_match(position, agente_alumno_clase, params=None):
+
+def etiqueta_agente(ruta_agente, params):
+    if params is None:
+        return ruta_agente
+    return f"{ruta_agente}{params}"
+
+
+def simulate_match(position, agente_alumno_clase, max_rounds, params=None):
     try:
         if params is not None:
             if isinstance(params, (list, tuple)):
@@ -52,7 +103,7 @@ def simulate_match(position, agente_alumno_clase, params=None):
         match_agents = [ra, ra, ra]
         match_agents.insert(position, agente_final)
 
-        game_director = GameDirector(agents=match_agents, max_rounds=200, store_trace=False)
+        game_director = GameDirector(agents=match_agents, max_rounds=max_rounds, store_trace=False)
         game_trace = game_director.game_start(print_outcome=False)
 
         last_round = max(game_trace["game"].keys(), key=lambda r: int(r.split("_")[-1]))
@@ -80,17 +131,45 @@ def simulate_match(position, agente_alumno_clase, params=None):
         print(traceback.format_exc())
         return (0, 0, 4)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
+    args = parse_args()
+    n_matches = args.n_matches if args.n_matches is not None else MATCHES_POR_PERFIL[args.perfil]
+    porcentaje_workers = args.workers_ratio
+
+    if n_matches <= 0:
+        raise ValueError("n_matches debe ser > 0")
+    if args.max_rounds <= 0:
+        raise ValueError("max_rounds debe ser > 0")
+    if not 0 < porcentaje_workers <= 1:
+        raise ValueError("workers_ratio debe estar en (0, 1]")
+
+    agentes_cargados = []
+    for ruta_agente, params_agente in agentes_a_evaluar:
+        try:
+            agentes_cargados.append((ruta_agente, cargar_agente(ruta_agente), params_agente))
+        except Exception as e:
+            print(f"[WARN] No se pudo cargar {ruta_agente}: {e}")
+
+    if not agentes_cargados:
+        raise RuntimeError("No hay agentes válidos para evaluar.")
+
     total_workers = os.cpu_count() or 1
     workers_a_utilizar = max(1, int(total_workers * porcentaje_workers))
-    print(f"Workers a utilizar ({porcentaje_workers*100}%): {workers_a_utilizar}\n")
+    total_partidas = len(agentes_cargados) * 4 * n_matches
+
+    print(f"Workers a utilizar ({porcentaje_workers*100:.1f}%): {workers_a_utilizar}")
+    print(f"Perfil: {args.perfil} | Partidas por posición: {n_matches} | Max rounds: {args.max_rounds}")
+    print(f"Agentes a evaluar: {[ruta for ruta, _, _ in agentes_cargados]}")
+    print(f"Total de partidas a simular: {total_partidas}\n")
 
     start_time = time.time()
     resumen_csv = []
+    partidas_completadas = 0
 
-    for ruta_agente, params_agente in agentes_a_evaluar:
-        agente_alumno = cargar_agente(ruta_agente)
+    for ruta_agente, agente_alumno, params_agente in agentes_cargados:
         agent_name = agente_alumno.__name__
+        agent_key = etiqueta_agente(ruta_agente, params_agente)
         print(f"\n==== Evaluando agente: {agent_name} ====\n")
 
         partial_start_time = time.time()
@@ -101,13 +180,22 @@ if __name__ == '__main__':
 
         with concurrent.futures.ProcessPoolExecutor(max_workers=workers_a_utilizar) as executor:
             for pos in range(4):
-                futures = [executor.submit(simulate_match, pos, agente_alumno, params_agente) for _ in range(n_matches)]
+                futures = [
+                    executor.submit(simulate_match, pos, agente_alumno, args.max_rounds, params_agente)
+                    for _ in range(n_matches)
+                ]
                 for f in concurrent.futures.as_completed(futures):
                     victory, points, rank = f.result()
                     position_results[pos] += victory
                     total_wins += victory
                     total_points += points
                     total_rank += rank
+                    partidas_completadas += 1
+                    if partidas_completadas % PROGRESS_EVERY == 0 or partidas_completadas == total_partidas:
+                        print(
+                            f"Progreso global: {partidas_completadas}/{total_partidas} "
+                            f"({partidas_completadas/total_partidas:.2%})"
+                        )
 
         for pos in range(4):
             wins = position_results[pos]
@@ -123,8 +211,20 @@ if __name__ == '__main__':
         print(f"Media de puntos: {media_puntos:.2f}")
         print(f"Puesto medio: {puesto_medio:.2f}")
 
-        resumen_csv.append([agent_name, total_wins, total_points, total_partidas,
-                            f"{ratio_victorias:.4f}", f"{media_puntos:.2f}", f"{puesto_medio:.2f}"])
+        resumen_csv.append(
+            [
+                agent_key,
+                total_wins,
+                total_points,
+                total_partidas,
+                f"{ratio_victorias:.4f}",
+                f"{media_puntos:.2f}",
+                f"{puesto_medio:.2f}",
+                args.perfil,
+                n_matches,
+                args.max_rounds,
+            ]
+        )
 
         partial_end_time = time.time()
         horas, resto = divmod(partial_end_time - partial_start_time, 3600)
@@ -132,10 +232,23 @@ if __name__ == '__main__':
         print(f"Tiempo parcial: {int(horas)}h {int(minutos)}m {int(segundos)}s\n")
 
     # Guardar CSV
-    csv_filename = "benchmark_vs_random_resultados.csv"
+    csv_filename = args.output
     with open(csv_filename, mode='w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(["Agente", "Victorias", "Puntos", "Partidas", "Ratio Victorias", "Media Puntos", "Puesto Medio"])
+        writer.writerow(
+            [
+                "Agente",
+                "Victorias",
+                "Puntos",
+                "Partidas",
+                "Ratio Victorias",
+                "Media Puntos",
+                "Puesto Medio",
+                "Perfil",
+                "PartidasPorPosicion",
+                "MaxRounds",
+            ]
+        )
         for row in resumen_csv:
             writer.writerow(row)
 
