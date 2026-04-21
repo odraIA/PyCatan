@@ -6,9 +6,10 @@
 #SBATCH -w vrhpc4.dsic.upv.es   # Node to run
 #SBATCH --time=3-00:00          # Time, Days-HH:MM format
 #SBATCH --cpus-per-task=4       # Total cores
-#SBATCH -o logs/%x_%j.log       # STDOUT (Usando la carpeta logs para consistencia)
+#SBATCH -o %x_%j.out            # STDOUT en el directorio desde donde se lanza sbatch
+#SBATCH -e %x_%j.err            # STDERR en el directorio desde donde se lanza sbatch
 
-set -u
+set -euo pipefail
 
 # Crear directorios necesarios
 mkdir -p logs runs
