@@ -13,6 +13,13 @@ RUTAS_AGENTES_ESTANDAR = [
     "Agents.RandomAgent.RandomAgent",
     "Agents.AdrianHerasAgent.AdrianHerasAgent",
     "Agents.AlexPastorAgent.AlexPastorAgent",
+    "Agents.AlexPelochoJaimeAgent.AlexPelochoJaimeAgent",
+    "Agents.CarlesZaidaAgent.CarlesZaidaAgent",
+    "Agents.CrabisaAgent.CrabisaAgent",
+    "Agents.EdoAgent.EdoAgent",
+    "PabloAleixAlexAgent.PabloAleixAlexAgent",
+    "SigmaAgent.SigmaAgent",
+    "TristanAgent.TristanAgent",
 ]
 
 TARGET_MATCHES_POR_AGENTE = {
