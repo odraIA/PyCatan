@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --mem=50G               # Total Memory
-#SBATCH -J alc_lab3_baseline    # Job name
+#SBATCH -J benchcat             # Job name
 #SBATCH -N 1                    # Amount of nodes
 #SBATCH -G 0                    # Num of GPUs
 #SBATCH -w vrhpc4.dsic.upv.es   # Node to run
