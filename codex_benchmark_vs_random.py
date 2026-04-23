@@ -65,10 +65,10 @@ def cargar_agente(ruta_clase):
     mod = importlib.import_module(modulo)
     return getattr(mod, clase)
 
-def crear_clase_agente_configurada(agente_clase, **kwargs):
+def crear_clase_agente_configurada(agente_clase, model, **kwargs):
     class AgenteConfigurado(agente_clase):
         def __init__(self, agent_id):
-            super().__init__(agent_id, **kwargs)
+            super().__init__(agent_id, model=model, **kwargs)
 
     AgenteConfigurado.__name__ = f"{agente_clase.__name__}_ConfiguradoDict"
     return AgenteConfigurado

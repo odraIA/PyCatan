@@ -15,7 +15,7 @@ import llm_assets.prompts as prompts
 load_dotenv()
 
 
-class GPTAgent(AgentInterface):
+class OllamaAgent(AgentInterface):
     PIP_WEIGHTS = {
         2: 1,
         3: 2,
@@ -488,135 +488,12 @@ class GPTAgent(AgentInterface):
 
     def on_moving_thief(self):
         self._ensure_plans()
-        pips_by_number = dict(self.PIP_WEIGHTS)
-        pips_by_number[7] = 0
-
-        def terrain_pips(terrain_id):
-            probability = self.board.terrain[terrain_id]["probability"]
-            return pips_by_number.get(probability, 0)
-
-        def estimate_player_strength(player_id):
-            if player_id == -1:
-                return -1.0
-
-            settlements_points = 0.0
-            production_score = 0.0
-            roads = set()
-
-            for node in self.board.nodes:
-                if node["player"] != player_id:
-                    continue
-
-                settlements_points += 2.0 if node["has_city"] else 1.0
-                multiplier = 2 if node["has_city"] else 1
-                for terrain_id in node["contacting_terrain"]:
-                    terrain = self.board.terrain[terrain_id]
-                    if terrain["terrain_type"] == TerrainConstants.DESERT:
-                        continue
-                    production_score += terrain_pips(terrain_id) * multiplier * 0.12
-
-                for road in node["roads"]:
-                    if road["player_id"] == player_id:
-                        roads.add(tuple(sorted((node["id"], road["node_id"]))))
-
-            roads_score = min(len(roads), 12) * 0.16
-            return settlements_points + production_score + roads_score
-
-        opponents = {
-            node["player"]
-            for node in self.board.nodes
-            if node["player"] not in (-1, self.id)
-        }
-        strongest_opponent = -1
-        if opponents:
-            strongest_opponent = max(opponents, key=estimate_player_strength)
-
-        hand_resources = self.hand.resources
-        my_resources = [
-            hand_resources.cereal,
-            hand_resources.mineral,
-            hand_resources.clay,
-            hand_resources.wood,
-            hand_resources.wool,
-        ]
-        lacking_resource = min(range(5), key=lambda material_id: my_resources[material_id])
-        current_terrain = next(
-            (terrain["id"] for terrain in self.board.terrain if terrain["has_thief"]),
-            -1,
-        )
-
-        heuristic_candidates = []
-        for terrain in self.board.terrain:
-            if terrain["terrain_type"] == TerrainConstants.DESERT:
-                continue
-
-            pips = pips_by_number.get(terrain["probability"], 0)
-            if pips <= 0:
-                continue
-
-            touching_own = False
-            enemy_nodes = []
-            for node_id in terrain["contacting_nodes"]:
-                owner = self.board.nodes[node_id]["player"]
-                if owner == self.id:
-                    touching_own = True
-                elif owner != -1:
-                    enemy_nodes.append(node_id)
-
-            if not enemy_nodes:
-                continue
-
-            own_penalty = 2.4 * pips if touching_own else 0.0
-            best_player = -1
-            best_score = -1e9
-            player_set = sorted({self.board.nodes[node_id]["player"] for node_id in enemy_nodes})
-            for owner in player_set:
-                has_city_contact = any(
-                    self.board.nodes[node_id]["player"] == owner and self.board.nodes[node_id]["has_city"]
-                    for node_id in enemy_nodes
-                )
-                city_factor = 1.2 if has_city_contact else 1.0
-                strength = estimate_player_strength(owner)
-                score = pips * city_factor * (1.5 if owner == strongest_opponent else 1.0)
-                score += 0.35 * strength
-                score -= own_penalty
-                if terrain["terrain_type"] == lacking_resource:
-                    score -= 1.5
-
-                if score > best_score:
-                    best_score = score
-                    best_player = owner
-
-            heuristic_candidates.append(
-                {
-                    "terrain": terrain["id"],
-                    "terrain_type": terrain["terrain_type"],
-                    "probability": terrain["probability"],
-                    "touching_own": touching_own,
-                    "current_thief_terrain": terrain["id"] == current_terrain,
-                    "best_player": best_player,
-                    "heuristic_score": round(best_score, 3),
-                }
-            )
-
-        heuristic_candidates.sort(key=lambda item: item["heuristic_score"], reverse=True)
-        heuristic_context = {
-            "strongest_opponent": strongest_opponent,
-            "lacking_resource": lacking_resource,
-            "current_thief_terrain": current_terrain,
-            "top_candidates": heuristic_candidates[:8],
-        }
-        thief_targets_payload = {
-            "candidates": self._thief_targets_context(),
-            "heuristics": heuristic_context,
-        }
-
         prompt = prompts.MOVE_THIEF_PROMPT.format(
             long_term_plan=self.long_term_plan,
             short_term_plan=self.short_term_plan,
             board_state=self._json_dump(self._board_state()),
             hand_resources=self._json_dump(self.hand.resources.__to_object__()),
-            thief_targets=self._json_dump(thief_targets_payload),
+            thief_targets=self._json_dump(self._thief_targets_context()),
             pydantic_move_model=self._schema_json(models.ThiefMoveModel),
         )
         response_content = self._request_llm(prompt)
@@ -630,8 +507,6 @@ class GPTAgent(AgentInterface):
         player = parsed_response.player
 
         if terrain < 0 or terrain >= len(self.board.terrain):
-            return self._default_move_thief()
-        if self.board.terrain[terrain]["has_thief"]:
             return self._default_move_thief()
 
         if player != -1:

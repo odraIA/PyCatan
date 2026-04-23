@@ -33,8 +33,9 @@ PROGRESS_EVERY = 5000
 
 # Agentes a evaluar: (ruta_clase, params)
 agentes_a_evaluar = [
-    ("Agents.GPTAgent.GPTAgent", None),
+    ("Agents.POLIGPTAgent.GPTAgent", None),
     ("Agents.HeuristicAgent.HeuristicAgent", None),
+    ("Agents.OllamaAgent.OllamaAgent", None),
 ]
 
 

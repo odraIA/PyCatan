@@ -255,7 +255,7 @@ Mandatory output rules:
 COMMON_PRO_CONTEXT = PROFESSIONAL + """
 You are controlling one Catan player in a competitive match.
 Use the following advanced strategic guides as hard constraints.
-""" + GUIDES_CONTEXT + GAME_RULES_CONTEXT
+""" + GAME_RULES_CONTEXT
 
 PLAN_INIT_PROMPT = COMMON_PRO_CONTEXT + """
 Create or refresh the two plans that will guide this agent.
@@ -271,16 +271,16 @@ Return JSON with this schema:
 {pydantic_plan_model}
 """
 
-GAME_START_PROMPT = COMMON_PRO_CONTEXT + """
-This is an initial placement decision.
-Create both plans and choose the best legal settlement+road pair.
+GAME_START_PROMPT = COMMON_PRO_CONTEXT + PLACEMENT_GUIDE + """
+Now you have to take a decision, this is an initial placement.
+Choose the best legal settlement+road pair.
 
-Current long_term_plan: {long_term_plan}
-Current short_term_plan: {short_term_plan}
 Player id: {player_id}
 Board state: {board_state}
 Valid starting nodes: {valid_starting_nodes}
 Road options per node: {node_road_options}
+Existing pips on the board: {existing_pips}
+Existing numbers on the board: {existing_numbers}
 
 Return JSON with this schema:
 {pydantic_game_start_model}
@@ -350,6 +350,14 @@ Current short_term_plan: {short_term_plan}
 Board state: {board_state}
 Your hand resources: {hand_resources}
 Candidate robber targets: {thief_targets}
+
+Decision policy you must follow:
+- Prioritize hurting the strongest opponent when alternatives are close.
+- Prefer high-pip terrains and city-adjacent enemy nodes.
+- Avoid placing the thief where it blocks your own production unless there is no better legal move.
+- If you are missing a resource, avoid blocking that same resource to preserve trade availability.
+- Never choose the terrain where the thief is currently located.
+- Choose a rob target that is adjacent to the selected terrain, otherwise return player as -1.
 
 Return JSON with this schema:
 {pydantic_move_model}
