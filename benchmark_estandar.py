@@ -32,7 +32,7 @@ agentes_a_evaluar = [
     #("Agents.OllamaAgent.OllamaAgent", {"model": ""}),
     #("Agents.OllamaAgent.OllamaAgent", {"model": ""}),
     #("Agents.OllamaAgent.OllamaAgent", {"model": ""}),
-    #("Agents.HeuristicAgent.HeuristicAgent", None),
+    ("Agents.HeuristicAgent.HeuristicAgent", None),
     # También puedes usar None para que use el modelo por defecto definido en el agente.
     # Se pueden poner varias configuraciones del mismo agente para comparar modelos.
 ]

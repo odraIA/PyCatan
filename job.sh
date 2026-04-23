@@ -48,17 +48,8 @@ TS="$(date +%Y%m%d_%H%M%S)"
 OUT_DIR="runs/benchmarks_${SLURM_JOB_ID:-local}_${TS}"
 mkdir -p "$OUT_DIR"
 
-echo "==== Running benchmark_vs_random.py ===="
-python -u benchmark_vs_random.py \
-  --perfil paper \
-  --workers-ratio 0.95 \
-  --output "${OUT_DIR}/benchmark_vs_random_resultados.csv"
-
 echo "==== Running benchmark_vs_agentes_estandar.py ===="
-python -u benchmark_vs_agentes_estandar.py \
-  --perfil paper \
-  --workers-ratio 0.95 \
-  --output "${OUT_DIR}/benchmark_vs_estandar_resultados.csv"
+python -u benchmark_estandar.py \
 
 echo "Resultados guardados en: ${OUT_DIR}"
 ls -lh "${OUT_DIR}"
