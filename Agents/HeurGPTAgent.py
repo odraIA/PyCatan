@@ -662,7 +662,7 @@ class HeurGPTAgent(AgentInterface):
             if not enemy_nodes:
                 continue
 
-            own_penalty = 2.4 * pips if touching_own else 0.0
+            own_penalty = 2.4 * self._pips if touching_own else 0.0
             best_player = -1
             best_score = -1e9
             player_set = sorted({self.board.nodes[node_id]["player"] for node_id in enemy_nodes})
@@ -673,7 +673,7 @@ class HeurGPTAgent(AgentInterface):
                 )
                 city_factor = 1.2 if has_city_contact else 1.0
                 strength = self._estimate_player_strength(owner)
-                score = pips * city_factor * (1.5 if owner == strongest else 1.0)
+                score = self._pips * city_factor * (1.5 if owner == strongest else 1.0)
                 score += 0.35 * strength
                 score -= own_penalty
                 if terrain["terrain_type"] == lacking:
