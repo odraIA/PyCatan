@@ -21,7 +21,7 @@ from Agents.HeuristicAgent import HeuristicAgent as ha
 
 BENCHMARK_AGENTS = [ra, aha, apa, apja, cza, ca, ea, paaa, sa, ta, ha]
 
-n_matches_per_permutation = 10 
+n_matches_per_permutation = 5 
 porcentaje_workers = 0.95
 
 # Agentes a evaluar: (ruta_clase, params)
@@ -38,7 +38,7 @@ agentes_a_evaluar = [
     #("Agents.OllamaAgent.OllamaAgent", {"model": "", "prompt_size": "BIG"}),
     #("Agents.OllamaAgent.OllamaAgent", {"model": "", "prompt_size": "BIG"}),
     #("Agents.OllamaAgent.OllamaAgent", {"model": "", "prompt_size": "BIG"}),
-    ("Agents.HeuristicAgent.HeuristicAgent", None),
+    #("Agents.HeuristicAgent.HeuristicAgent", None),
     # También puedes usar None para que use el modelo por defecto definido en el agente.
     # Se pueden poner varias configuraciones del mismo agente para comparar modelos.
 ]
