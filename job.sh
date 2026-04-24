@@ -49,7 +49,7 @@ OUT_DIR="runs/benchmarks_${SLURM_JOB_ID:-local}_${TS}"
 mkdir -p "$OUT_DIR"
 
 echo "==== Running benchmark_vs_agentes_estandar.py ===="
-python -u benchmark_estandar.py \
+python -u benchmark_estandar_aws.py \
 
 echo "Resultados guardados en: ${OUT_DIR}"
 ls -lh "${OUT_DIR}"

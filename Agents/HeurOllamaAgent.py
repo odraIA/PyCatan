@@ -13,9 +13,9 @@ class HeurOllamaAgent(HeurGPTAgent):
     def __init__(self, agent_id, model=None, prompt_size="BIG"):
         AgentInterface.__init__(self, agent_id)
         self._commerce_actions = 0
-        self.api_key = os.getenv("OLLAMA_API_KEY") or "ollama"
-        self.base_url = os.getenv("OLLAMA_BASE_URL") or "http://localhost:11434/v1"
-        self.model = model or os.getenv("OLLAMA_MODEL") or "qwen3:32b"
+        self.api_key = "ollama"
+        self.base_url = "http://localhost:11434/v1"
+        self.model = model
         self.prompt_size = prompt_size
 
         try:

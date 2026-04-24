@@ -1,6 +1,7 @@
 annotated-types==0.7.0
 anyio==4.12.1
 asttokens @ file:///home/conda/feedstock_root/build_artifacts/asttokens_1763409923949/work
+boto3>=1.35.0,<2
 certifi==2026.2.25
 comm @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_comm_1753453984/work
 debugpy @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_debugpy_1769744984/work

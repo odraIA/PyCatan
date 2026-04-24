@@ -984,6 +984,24 @@ class HeurGPTAgent(AgentInterface):
             if node_id in valid_nodes and road_to in self.board.nodes[node_id]["adjacent"]:
                 return node_id, road_to
 
+        # Fall back to the local heuristic when the model is unavailable or
+        # proposes an invalid opening move, so the engine always gets a tuple.
+        best_node = max(
+            valid_nodes,
+            key=lambda candidate: self._node_score_for_settlement(
+                candidate,
+                board_instance=board_instance,
+                existing_resource_pips=existing_pips,
+                existing_numbers=existing_numbers,
+            ),
+        )
+
+        best_road_to = self._best_starting_road(best_node, board_instance=board_instance)
+        if best_road_to is None:
+            best_road_to = random.choice(board_instance.nodes[best_node]["adjacent"])
+
+        return best_node, best_road_to
+
     def on_monopoly_card_use(self):
         material, _ = self._best_monopoly_material()
         return material
