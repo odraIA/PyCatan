@@ -949,7 +949,3 @@ class HeurGPTAgent(AgentInterface):
     def on_year_of_plenty_card_use(self):
         first, second = self._best_year_of_plenty_pair()
         return {"material": first, "material_2": second}
-
-
-# Alias para mantener compatibilidad con importaciones antiguas.
-AlexPastorAgent = HeuristicAgent
