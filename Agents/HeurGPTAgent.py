@@ -51,12 +51,13 @@ class HeurGPTAgent(AgentInterface):
         BuildConstants.ROAD: 1.7,
     }
 
-    def __init__(self, agent_id, model="gpt-oss-120b"):
+    def __init__(self, agent_id, model="gpt-oss-120b", prompt_size="BIG"):
         super().__init__(agent_id)
         self._commerce_actions = 0
         self.api_key = os.getenv("POLIGPT_API_KEY")
-        self.base_url = os.getenv("POLIGPT_URL")
+        self.base_url = os.getenv("POLIGPT_BASE_URL")
         self.model = model
+        self.prompt_size = prompt_size
 
         try:
             self.client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url)
@@ -71,6 +72,12 @@ class HeurGPTAgent(AgentInterface):
     def _resources_as_list(self, resources=None):
         resources = self.hand.resources if resources is None else resources
         return [resources.cereal, resources.mineral, resources.clay, resources.wood, resources.wool]
+
+    def _prompt_by_size(self, prompt_base_name):
+        size = str(self.prompt_size).strip().upper()
+        if size not in {"BIG", "MEDIUM", "SMALL"}:
+            size = "MEDIUM"
+        return getattr(prompts, f"{prompt_base_name}_{size}", getattr(prompts, prompt_base_name))
 
     def _build_shortage(self, building, resources=None):
         resources = self.hand.resources if resources is None else resources
@@ -568,7 +575,97 @@ class HeurGPTAgent(AgentInterface):
             payload = json.loads(cleaned_response)
         except Exception:
             return None
-    
+
+        try:
+            if hasattr(model_cls, "model_validate"):
+                return model_cls.model_validate(payload)
+            return model_cls.parse_obj(payload)
+        except Exception:
+            return None
+
+    def _board_state(self, board_instance=None):
+        if board_instance is not None:
+            self.board = board_instance
+
+        thief_terrain = -1
+        for terrain in self.board.terrain:
+            if terrain["has_thief"]:
+                thief_terrain = terrain["id"]
+                break
+
+        my_nodes = [node["id"] for node in self.board.nodes if node["player"] == self.id]
+        my_cities = [node["id"] for node in self.board.nodes if node["player"] == self.id and node["has_city"]]
+        my_towns = [node_id for node_id in my_nodes if node_id not in my_cities]
+
+        return {
+            "player_id": self.id,
+            "thief_terrain_id": thief_terrain,
+            "my_nodes": my_nodes,
+            "my_towns": my_towns,
+            "my_cities": my_cities,
+            "nodes": self.board.nodes,
+            "terrain": self.board.terrain,
+        }
+
+    def _thief_targets_context(self):
+        targets = []
+        for terrain in self.board.terrain:
+            enemy_players = []
+            own_presence = False
+            for node_id in terrain["contacting_nodes"]:
+                player = self.board.nodes[node_id]["player"]
+                if player == self.id:
+                    own_presence = True
+                elif player != -1:
+                    enemy_players.append(player)
+
+            targets.append(
+                {
+                    "terrain": terrain["id"],
+                    "probability": terrain["probability"],
+                    "terrain_type": terrain["terrain_type"],
+                    "enemy_players": sorted(set(enemy_players)),
+                    "own_presence": own_presence,
+                }
+            )
+        return targets
+
+    def _default_move_thief(self):
+        best_target = None
+        best_score = -1
+        best_player = -1
+
+        for terrain in self.board.terrain:
+            if terrain["terrain_type"] == TerrainConstants.DESERT:
+                continue
+
+            own_presence = False
+            player_count = {}
+            for node_id in terrain["contacting_nodes"]:
+                player = self.board.nodes[node_id]["player"]
+                if player == self.id:
+                    own_presence = True
+                elif player != -1:
+                    player_count[player] = player_count.get(player, 0) + 1
+
+            if not player_count or own_presence:
+                continue
+
+            terrain_score = self.PIPS_BY_NUMBER.get(terrain["probability"], 0)
+            if terrain_score > best_score:
+                best_score = terrain_score
+                best_target = terrain["id"]
+                best_player = max(player_count, key=player_count.get)
+
+        if best_target is None:
+            for terrain in self.board.terrain:
+                if not terrain["has_thief"]:
+                    return {"terrain": terrain["id"], "player": -1}
+
+            return {"terrain": 0, "player": -1}
+
+        return {"terrain": best_target, "player": best_player}
+
     def _request_llm(self, prompt):
         if self.client is None:
             return None
@@ -642,6 +739,8 @@ class HeurGPTAgent(AgentInterface):
         strongest = self._strongest_opponent()
         my_resources = self._resources_as_list()
         lacking = min(range(5), key=lambda material_id: my_resources[material_id])
+        pips_by_number = dict(self.PIPS_BY_NUMBER)
+        pips_by_number[7] = 0
 
         current_terrain = next((terrain["id"] for terrain in self.board.terrain if terrain["has_thief"]), 0)
         
@@ -649,6 +748,8 @@ class HeurGPTAgent(AgentInterface):
         for terrain in self.board.terrain:
             if terrain["terrain_type"] == TerrainConstants.DESERT:
                 continue
+
+            pips = pips_by_number.get(terrain["probability"], 0)
 
             touching_own = False
             enemy_nodes = []
@@ -662,7 +763,7 @@ class HeurGPTAgent(AgentInterface):
             if not enemy_nodes:
                 continue
 
-            own_penalty = 2.4 * self._pips if touching_own else 0.0
+            own_penalty = 2.4 * pips if touching_own else 0.0
             best_player = -1
             best_score = -1e9
             player_set = sorted({self.board.nodes[node_id]["player"] for node_id in enemy_nodes})
@@ -673,7 +774,7 @@ class HeurGPTAgent(AgentInterface):
                 )
                 city_factor = 1.2 if has_city_contact else 1.0
                 strength = self._estimate_player_strength(owner)
-                score = self._pips * city_factor * (1.5 if owner == strongest else 1.0)
+                score = pips * city_factor * (1.5 if owner == strongest else 1.0)
                 score += 0.35 * strength
                 score -= own_penalty
                 if terrain["terrain_type"] == lacking:
@@ -707,7 +808,7 @@ class HeurGPTAgent(AgentInterface):
             "heuristics": heuristic_context,
         }
 
-        prompt = prompts.MOVE_THIEF_PROMPT.format(
+        prompt = self._prompt_by_size("MOVE_THIEF_PROMPT").format(
             board_state=self._json_dump(self._board_state()),
             hand_resources=self._json_dump(self.hand.resources.__to_object__()),
             thief_targets_payload=self._json_dump(thief_targets_payload),
@@ -715,7 +816,6 @@ class HeurGPTAgent(AgentInterface):
         )
         response_content = self._request_llm(prompt)
         parsed_response = self._parse_model(models.ThiefMoveModel, response_content)
-        self._update_plans_from_response(parsed_response)
 
         if parsed_response is None:
             return self._default_move_thief()
@@ -865,7 +965,7 @@ class HeurGPTAgent(AgentInterface):
         existing_pips = self._player_resource_pips(self.id, board_instance=board_instance, include_blocked=True)
         existing_numbers = self._player_numbers(self.id, board_instance=board_instance)
 
-        prompt = prompts.GAME_START_PROMPT.format(
+        prompt = self._prompt_by_size("GAME_START_PROMPT").format(
             player_id=self.id,
             board_state=self._json_dump(self._board_state(board_instance)),
             valid_starting_nodes=self._json_dump(valid_nodes),
@@ -877,46 +977,12 @@ class HeurGPTAgent(AgentInterface):
 
         response_content = self._request_llm(prompt)
         parsed_response = self._parse_model(models.GameStartModel, response_content)
-        self._update_plans_from_response(parsed_response)
 
         if parsed_response is not None:
             node_id = parsed_response.node_id
             road_to = parsed_response.road_to
             if node_id in valid_nodes and road_to in self.board.nodes[node_id]["adjacent"]:
                 return node_id, road_to
-    
-    def on_game_start(self, board_instance):
-        self.board = board_instance
-
-        if self._is_first_setup_call_of_match(board_instance):
-            self.long_term_plan = ""
-            self.short_term_plan = ""
-            self._plans_initialized = False
-
-        valid_starting_nodes = self.board.valid_starting_nodes()
-        node_road_options = {node_id: self.board.nodes[node_id]["adjacent"] for node_id in valid_starting_nodes}
-
-        prompt = prompts.GAME_START_PROMPT.format(
-            long_term_plan=self.long_term_plan,
-            short_term_plan=self.short_term_plan,
-            player_id=self.id,
-            board_state=self._json_dump(self._board_state(board_instance)),
-            valid_starting_nodes=self._json_dump(valid_starting_nodes),
-            node_road_options=self._json_dump(node_road_options),
-            pydantic_game_start_model=self._schema_json(models.GameStartModel),
-        )
-        response_content = self._request_llm(prompt)
-        parsed_response = self._parse_model(models.GameStartModel, response_content)
-        self._update_plans_from_response(parsed_response)
-
-        if parsed_response is not None:
-            node_id = parsed_response.node_id
-            road_to = parsed_response.road_to
-            if node_id in valid_starting_nodes and road_to in self.board.nodes[node_id]["adjacent"]:
-                return node_id, road_to
-
-        self._ensure_plans(board_instance)
-        return self._best_starting_move()
 
     def on_monopoly_card_use(self):
         material, _ = self._best_monopoly_material()

@@ -26,12 +26,18 @@ porcentaje_workers = 0.95
 
 # Agentes a evaluar: (ruta_clase, params)
 agentes_a_evaluar = [
-    ("Agents.HeurGPTAgent.HeurGPTAgent", {"model": "gpt-oss-120b"}),
-    ("Agents.HeurGPTAgent.HeurGPTAgent", {"model": "deepseek-r1:70b"}),
-    ("Agents.HeurGPTAgent.HeurGPTAgent", {"model": "qwen3:32b"}),
-    #("Agents.OllamaAgent.OllamaAgent", {"model": ""}),
-    #("Agents.OllamaAgent.OllamaAgent", {"model": ""}),
-    #("Agents.OllamaAgent.OllamaAgent", {"model": ""}),
+    ("Agents.HeurGPTAgent.HeurGPTAgent", {"model": "gpt-oss-120b", "prompt_size": "BIG"}),
+    ("Agents.HeurGPTAgent.HeurGPTAgent", {"model": "gpt-oss-120b", "prompt_size": "MEDIUM"}),
+    ("Agents.HeurGPTAgent.HeurGPTAgent", {"model": "gpt-oss-120b", "prompt_size": "SMALL"}),
+    ("Agents.HeurGPTAgent.HeurGPTAgent", {"model": "deepseek-r1:70b", "prompt_size": "BIG"}),
+    ("Agents.HeurGPTAgent.HeurGPTAgent", {"model": "deepseek-r1:70b", "prompt_size": "MEDIUM"}),
+    ("Agents.HeurGPTAgent.HeurGPTAgent", {"model": "deepseek-r1:70b", "prompt_size": "SMALL"}),
+    ("Agents.HeurGPTAgent.HeurGPTAgent", {"model": "qwen3:32b", "prompt_size": "BIG"}),
+    ("Agents.HeurGPTAgent.HeurGPTAgent", {"model": "qwen3:32b", "prompt_size": "MEDIUM"}),
+    ("Agents.HeurGPTAgent.HeurGPTAgent", {"model": "qwen3:32b", "prompt_size": "SMALL"}),
+    #("Agents.OllamaAgent.OllamaAgent", {"model": "", "prompt_size": "BIG"}),
+    #("Agents.OllamaAgent.OllamaAgent", {"model": "", "prompt_size": "BIG"}),
+    #("Agents.OllamaAgent.OllamaAgent", {"model": "", "prompt_size": "BIG"}),
     ("Agents.HeuristicAgent.HeuristicAgent", None),
     # También puedes usar None para que use el modelo por defecto definido en el agente.
     # Se pueden poner varias configuraciones del mismo agente para comparar modelos.

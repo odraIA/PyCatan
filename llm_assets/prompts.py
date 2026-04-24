@@ -257,21 +257,45 @@ You are controlling one Catan player in a competitive match.
 Use the following advanced strategic guides as hard constraints.
 """ + GAME_RULES_CONTEXT
 
-PLAN_INIT_PROMPT = COMMON_PRO_CONTEXT + """
-Create or refresh the two plans that will guide this agent.
-
-Current long_term_plan: {long_term_plan}
-Current short_term_plan: {short_term_plan}
-Player id: {player_id}
-Board state: {board_state}
-Hand resources: {hand_resources}
-Development cards in hand: {development_cards}
-
-Return JSON with this schema:
-{pydantic_plan_model}
+PLACEMENT_GUIDE_MEDIUM = """
+Initial placement priorities:
+- Maximize total pips and avoid low-production starts.
+- Cover as many different resources as possible across your first two settlements.
+- Value ore and wheat slightly higher because they enable cities and development cards.
+- Keep wood and brick reasonably balanced so roads and settlements stay reachable.
+- Prefer wider number coverage to reduce variance.
+- Ports matter when they match your strongest production or fix a likely imbalance.
+- Use the road to point toward realistic next expansion, usually an outside intersection.
 """
 
-GAME_START_PROMPT = COMMON_PRO_CONTEXT + PLACEMENT_GUIDE + """
+PLACEMENT_GUIDE_SMALL = """
+Choose the best legal opening by prioritizing:
+- high pips,
+- resource diversity,
+- ore/wheat access,
+- balanced wood/brick,
+- broad number spread,
+- road direction toward the best remaining expansion.
+"""
+
+THIEFS_GUIDE_MEDIUM = """
+Robber priorities:
+- Hurt the strongest opponent when options are similar.
+- Prefer high-pip enemy production, especially cities.
+- Avoid blocking your own tiles unless every legal option is worse.
+- If you lack one resource badly, avoid blocking that resource on the board.
+- Rob a player adjacent to the chosen terrain; otherwise return player -1.
+"""
+
+THIEFS_GUIDE_SMALL = """
+Move the thief to the best legal enemy tile:
+- maximize enemy disruption,
+- target the strongest opponent when close,
+- avoid your own production,
+- pick an adjacent victim or return player -1.
+"""
+
+GAME_START_PROMPT_BIG = COMMON_PRO_CONTEXT + PLACEMENT_GUIDE + """
 Now you have to take a decision, this is an initial placement.
 Choose the best legal settlement+road pair.
 
@@ -286,70 +310,40 @@ Return JSON with this schema:
 {pydantic_game_start_model}
 """
 
-TRADE_PROMPT = COMMON_PRO_CONTEXT + """
-A player offered a trade to you. Decide to accept, reject, or return a counteroffer.
+GAME_START_PROMPT_MEDIUM = COMMON_PRO_CONTEXT + PLACEMENT_GUIDE_MEDIUM + """
+Now choose the best legal initial settlement+road pair.
 
-Current long_term_plan: {long_term_plan}
-Current short_term_plan: {short_term_plan}
+Player id: {player_id}
 Board state: {board_state}
-Player {player_id} offered: {trade_offer}
-Your hand resources: {hand_resources}
-Your development cards: {development_cards}
+Valid starting nodes: {valid_starting_nodes}
+Road options per node: {node_road_options}
+Existing pips on the board: {existing_pips}
+Existing numbers on the board: {existing_numbers}
 
 Return JSON with this schema:
-{pydantic_trade_model}
-If rejecting, respond exactly with: None
-If accepting, respond exactly with: true
+{pydantic_game_start_model}
 """
 
-TURN_START_PROMPT = COMMON_PRO_CONTEXT + """
-Turn start phase. You may play one development card.
+GAME_START_PROMPT_SMALL = COMMON_PRO_CONTEXT + PLACEMENT_GUIDE_SMALL + """
+Choose the best legal initial settlement+road pair.
 
-Current long_term_plan: {long_term_plan}
-Current short_term_plan: {short_term_plan}
+Player id: {player_id}
 Board state: {board_state}
-Your hand resources: {hand_resources}
-Your development cards: {development_cards}
-Playable development options: {playable_development_cards}
+Valid starting nodes: {valid_starting_nodes}
+Road options per node: {node_road_options}
+Existing pips on the board: {existing_pips}
+Existing numbers on the board: {existing_numbers}
 
 Return JSON with this schema:
-{pydantic_decision_model}
+{pydantic_game_start_model}
 """
 
-TURN_END_PROMPT = COMMON_PRO_CONTEXT + """
-Turn end phase. You may still play one development card.
-
-Current long_term_plan: {long_term_plan}
-Current short_term_plan: {short_term_plan}
-Board state: {board_state}
-Your hand resources: {hand_resources}
-Your development cards: {development_cards}
-Playable development options: {playable_development_cards}
-
-Return JSON with this schema:
-{pydantic_decision_model}
-"""
-
-DISCARD_PROMPT = COMMON_PRO_CONTEXT + """
-A 7 was rolled and you have to manage hand risk. Update plans considering discard pressure.
-
-Current long_term_plan: {long_term_plan}
-Current short_term_plan: {short_term_plan}
-Board state: {board_state}
-Your current hand resources: {hand_resources}
-
-Return JSON with this schema:
-{pydantic_plan_model}
-"""
-
-MOVE_THIEF_PROMPT = COMMON_PRO_CONTEXT + """
+MOVE_THIEF_PROMPT_BIG = COMMON_PRO_CONTEXT + THIEFS_GUIDE + """
 Decide where to move the thief and which player to rob.
 
-Current long_term_plan: {long_term_plan}
-Current short_term_plan: {short_term_plan}
 Board state: {board_state}
 Your hand resources: {hand_resources}
-Candidate robber targets: {thief_targets}
+Candidate robber targets: {thief_targets_payload}
 
 Decision policy you must follow:
 - Prioritize hurting the strongest opponent when alternatives are close.
@@ -363,73 +357,178 @@ Return JSON with this schema:
 {pydantic_move_model}
 """
 
-COMMERCE_PROMPT = COMMON_PRO_CONTEXT + """
-Commerce phase decision.
-You may choose one action: none, player_trade, harbor_trade, or play_development_card.
+MOVE_THIEF_PROMPT_MEDIUM = COMMON_PRO_CONTEXT + THIEFS_GUIDE_MEDIUM + """
+Decide where to move the thief and which player to rob.
 
-Current long_term_plan: {long_term_plan}
-Current short_term_plan: {short_term_plan}
 Board state: {board_state}
 Your hand resources: {hand_resources}
-Your development cards: {development_cards}
-Playable development options: {playable_development_cards}
-Harbor trade opportunities: {harbor_trade_options}
+Candidate robber targets: {thief_targets_payload}
+
+Rules:
+- Never choose the terrain where the thief already is.
+- Prefer high-pip terrains with enemy city contact.
+- If the chosen terrain has no legal victim, return player as -1.
 
 Return JSON with this schema:
-{pydantic_commerce_model}
+{pydantic_move_model}
 """
 
-BUILD_PROMPT = COMMON_PRO_CONTEXT + """
-Build phase decision.
-You may choose one action: none, build_town, build_city, build_road, build_card, or play_development_card.
+MOVE_THIEF_PROMPT_SMALL = COMMON_PRO_CONTEXT + THIEFS_GUIDE_SMALL + """
+Choose the best legal thief move and robbery target.
 
-Current long_term_plan: {long_term_plan}
-Current short_term_plan: {short_term_plan}
 Board state: {board_state}
 Your hand resources: {hand_resources}
-Your development cards: {development_cards}
-Playable development options: {playable_development_cards}
-Valid town nodes: {valid_town_nodes}
-Valid city nodes: {valid_city_nodes}
-Valid road pairs: {valid_road_nodes}
+Candidate robber targets: {thief_targets_payload}
+
+Constraints:
+- Never keep the thief on its current terrain.
+- Return player -1 if no adjacent enemy can be robbed.
 
 Return JSON with this schema:
-{pydantic_build_model}
+{pydantic_move_model}
 """
 
-MONOPOLY_PROMPT = COMMON_PRO_CONTEXT + """
-You are using Monopoly. Choose the best material id to maximize win probability.
+GAME_START_PROMPT = GAME_START_PROMPT_BIG
+MOVE_THIEF_PROMPT = MOVE_THIEF_PROMPT_BIG
 
-Current long_term_plan: {long_term_plan}
-Current short_term_plan: {short_term_plan}
-Board state: {board_state}
-Your hand resources: {hand_resources}
-
-Return JSON with this schema:
-{pydantic_monopoly_model}
-"""
-
-ROAD_BUILDING_PROMPT = COMMON_PRO_CONTEXT + """
-You are using Road Building. Choose up to two legal roads.
-
-Current long_term_plan: {long_term_plan}
-Current short_term_plan: {short_term_plan}
-Board state: {board_state}
-Your hand resources: {hand_resources}
-Valid road pairs: {valid_road_nodes}
-
-Return JSON with this schema:
-{pydantic_road_building_model}
-"""
-
-YEAR_OF_PLENTY_PROMPT = COMMON_PRO_CONTEXT + """
-You are using Year of Plenty. Choose the two material ids that best advance your plans.
-
-Current long_term_plan: {long_term_plan}
-Current short_term_plan: {short_term_plan}
-Board state: {board_state}
-Your hand resources: {hand_resources}
-
-Return JSON with this schema:
-{pydantic_year_of_plenty_model}
-"""
+# Prompts no usados por HeurGPTAgent.py, movidos al final y comentados.
+# PLAN_INIT_PROMPT = COMMON_PRO_CONTEXT + """
+# Create or refresh the two plans that will guide this agent.
+#
+# Current long_term_plan: {long_term_plan}
+# Current short_term_plan: {short_term_plan}
+# Player id: {player_id}
+# Board state: {board_state}
+# Hand resources: {hand_resources}
+# Development cards in hand: {development_cards}
+#
+# Return JSON with this schema:
+# {pydantic_plan_model}
+# """
+#
+# TRADE_PROMPT = COMMON_PRO_CONTEXT + """
+# A player offered a trade to you. Decide to accept, reject, or return a counteroffer.
+#
+# Current long_term_plan: {long_term_plan}
+# Current short_term_plan: {short_term_plan}
+# Board state: {board_state}
+# Player {player_id} offered: {trade_offer}
+# Your hand resources: {hand_resources}
+# Your development cards: {development_cards}
+#
+# Return JSON with this schema:
+# {pydantic_trade_model}
+# If rejecting, respond exactly with: None
+# If accepting, respond exactly with: true
+# """
+#
+# TURN_START_PROMPT = COMMON_PRO_CONTEXT + """
+# Turn start phase. You may play one development card.
+#
+# Current long_term_plan: {long_term_plan}
+# Current short_term_plan: {short_term_plan}
+# Board state: {board_state}
+# Your hand resources: {hand_resources}
+# Your development cards: {development_cards}
+# Playable development options: {playable_development_cards}
+#
+# Return JSON with this schema:
+# {pydantic_decision_model}
+# """
+#
+# TURN_END_PROMPT = COMMON_PRO_CONTEXT + """
+# Turn end phase. You may still play one development card.
+#
+# Current long_term_plan: {long_term_plan}
+# Current short_term_plan: {short_term_plan}
+# Board state: {board_state}
+# Your hand resources: {hand_resources}
+# Your development cards: {development_cards}
+# Playable development options: {playable_development_cards}
+#
+# Return JSON with this schema:
+# {pydantic_decision_model}
+# """
+#
+# DISCARD_PROMPT = COMMON_PRO_CONTEXT + """
+# A 7 was rolled and you have to manage hand risk. Update plans considering discard pressure.
+#
+# Current long_term_plan: {long_term_plan}
+# Current short_term_plan: {short_term_plan}
+# Board state: {board_state}
+# Your current hand resources: {hand_resources}
+#
+# Return JSON with this schema:
+# {pydantic_plan_model}
+# """
+#
+# COMMERCE_PROMPT = COMMON_PRO_CONTEXT + """
+# Commerce phase decision.
+# You may choose one action: none, player_trade, harbor_trade, or play_development_card.
+#
+# Current long_term_plan: {long_term_plan}
+# Current short_term_plan: {short_term_plan}
+# Board state: {board_state}
+# Your hand resources: {hand_resources}
+# Your development cards: {development_cards}
+# Playable development options: {playable_development_cards}
+# Harbor trade opportunities: {harbor_trade_options}
+#
+# Return JSON with this schema:
+# {pydantic_commerce_model}
+# """
+#
+# BUILD_PROMPT = COMMON_PRO_CONTEXT + """
+# Build phase decision.
+# You may choose one action: none, build_town, build_city, build_road, build_card, or play_development_card.
+#
+# Current long_term_plan: {long_term_plan}
+# Current short_term_plan: {short_term_plan}
+# Board state: {board_state}
+# Your hand resources: {hand_resources}
+# Your development cards: {development_cards}
+# Playable development options: {playable_development_cards}
+# Valid town nodes: {valid_town_nodes}
+# Valid city nodes: {valid_city_nodes}
+# Valid road pairs: {valid_road_nodes}
+#
+# Return JSON with this schema:
+# {pydantic_build_model}
+# """
+#
+# MONOPOLY_PROMPT = COMMON_PRO_CONTEXT + """
+# You are using Monopoly. Choose the best material id to maximize win probability.
+#
+# Current long_term_plan: {long_term_plan}
+# Current short_term_plan: {short_term_plan}
+# Board state: {board_state}
+# Your hand resources: {hand_resources}
+#
+# Return JSON with this schema:
+# {pydantic_monopoly_model}
+# """
+#
+# ROAD_BUILDING_PROMPT = COMMON_PRO_CONTEXT + """
+# You are using Road Building. Choose up to two legal roads.
+#
+# Current long_term_plan: {long_term_plan}
+# Current short_term_plan: {short_term_plan}
+# Board state: {board_state}
+# Your hand resources: {hand_resources}
+# Valid road pairs: {valid_road_nodes}
+#
+# Return JSON with this schema:
+# {pydantic_road_building_model}
+# """
+#
+# YEAR_OF_PLENTY_PROMPT = COMMON_PRO_CONTEXT + """
+# You are using Year of Plenty. Choose the two material ids that best advance your plans.
+#
+# Current long_term_plan: {long_term_plan}
+# Current short_term_plan: {short_term_plan}
+# Board state: {board_state}
+# Your hand resources: {hand_resources}
+#
+# Return JSON with this schema:
+# {pydantic_year_of_plenty_model}
+# """
