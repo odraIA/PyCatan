@@ -19,20 +19,16 @@ from Agents.TristanAgent import TristanAgent as ta
 from Managers.GameDirector import GameDirector
 from Agents.HeuristicAgent import HeuristicAgent as ha
 
-BENCHMARK_AGENTS = [ra, aha, apa, apja, cza, ca, ea, paaa, sa, ta, ha]
-
+BENCHMARK_AGENTS = [aha, apja, ca, paaa, ta, ha]
 n_matches_per_permutation = 1
 porcentaje_workers = 0.95
 
 # Agentes a evaluar: (ruta_clase, params)
 agentes_a_evaluar = [
-    ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "qwen3.5:4b", "prompt_size": "BIG"}),
     ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "qwen3.5:4b", "prompt_size": "MEDIUM"}),
     ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "qwen3.5:4b", "prompt_size": "SMALL"}),
-    ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "gemma3:4b", "prompt_size": "BIG"}),
     ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "gemma3:4b", "prompt_size": "MEDIUM"}),
     ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "gemma3:4b", "prompt_size": "SMALL"}),
-    ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "llama3.1:8b", "prompt_size": "BIG"}),
     ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "llama3.1:8b", "prompt_size": "MEDIUM"}),
     ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "llama3.1:8b", "prompt_size": "SMALL"}),
     # También puedes usar None para que use el modelo por defecto definido en el agente.

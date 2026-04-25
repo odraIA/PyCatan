@@ -26,13 +26,10 @@ porcentaje_workers = 0.95
 
 # Agentes a evaluar: (ruta_clase, params)
 agentes_a_evaluar = [
-    ("Agents.HeurAWSAgent.HeurAWSAgent", {"model": "mistral.mistral-7b-instruct-v0:2", "prompt_size": "BIG"}),
     ("Agents.HeurAWSAgent.HeurAWSAgent", {"model": "mistral.mistral-7b-instruct-v0:2", "prompt_size": "MEDIUM"}),
     ("Agents.HeurAWSAgent.HeurAWSAgent", {"model": "mistral.mistral-7b-instruct-v0:2", "prompt_size": "SMALL"}),
-    ("Agents.HeurAWSAgent.HeurAWSAgent", {"model": "amazon.nova-lite-v1:0", "prompt_size": "BIG"}),
     ("Agents.HeurAWSAgent.HeurAWSAgent", {"model": "amazon.nova-lite-v1:0", "prompt_size": "MEDIUM"}),
     ("Agents.HeurAWSAgent.HeurAWSAgent", {"model": "amazon.nova-lite-v1:0", "prompt_size": "SMALL"}),
-    ("Agents.HeurAWSAgent.HeurAWSAgent", {"model": "meta.llama3-3-70b-instruct-v1:0", "prompt_size": "BIG"}),
     ("Agents.HeurAWSAgent.HeurAWSAgent", {"model": "meta.llama3-3-70b-instruct-v1:0", "prompt_size": "MEDIUM"}),
     ("Agents.HeurAWSAgent.HeurAWSAgent", {"model": "meta.llama3-3-70b-instruct-v1:0", "prompt_size": "SMALL"}),
     # También puedes usar None para que use el modelo por defecto definido en el agente.

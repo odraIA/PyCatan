@@ -19,9 +19,9 @@ from Agents.TristanAgent import TristanAgent as ta
 from Managers.GameDirector import GameDirector
 from Agents.HeuristicAgent import HeuristicAgent as ha
 
-BENCHMARK_AGENTS = [ra, aha, apa, apja, cza, ca, ea, paaa, sa, ta, ha]
+BENCHMARK_AGENTS = [aha, apja, ca, paaa, ta, ha]
 
-n_matches_per_permutation = 5 
+n_matches_per_permutation = 1
 porcentaje_workers = 0.95
 
 # Agentes a evaluar: (ruta_clase, params)
