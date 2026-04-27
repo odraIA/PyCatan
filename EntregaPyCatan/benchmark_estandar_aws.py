@@ -19,14 +19,19 @@ from Agents.TristanAgent import TristanAgent as ta
 from Managers.GameDirector import GameDirector
 from Agents.HeuristicAgent import HeuristicAgent as ha
 
-BENCHMARK_AGENTS = [ra, aha, apa, apja, cza, ca, ea, paaa, sa, ta]
+BENCHMARK_AGENTS = [aha, apja, ca, paaa, ta, ha]
 
-n_matches_per_permutation = 10
+n_matches_per_permutation = 1
 porcentaje_workers = 0.95
 
 # Agentes a evaluar: (ruta_clase, params)
 agentes_a_evaluar = [
-   ("Agents.HeuristicAgent.HeuristicAgent", None),
+    ("Agents.HeurAWSAgent.HeurAWSAgent", {"model": "mistral.mistral-7b-instruct-v0:2", "prompt_size": "MEDIUM"}),
+    ("Agents.HeurAWSAgent.HeurAWSAgent", {"model": "mistral.mistral-7b-instruct-v0:2", "prompt_size": "SMALL"}),
+    ("Agents.HeurAWSAgent.HeurAWSAgent", {"model": "amazon.nova-lite-v1:0", "prompt_size": "MEDIUM"}),
+    ("Agents.HeurAWSAgent.HeurAWSAgent", {"model": "amazon.nova-lite-v1:0", "prompt_size": "SMALL"}),
+    ("Agents.HeurAWSAgent.HeurAWSAgent", {"model": "meta.llama3-3-70b-instruct-v1:0", "prompt_size": "MEDIUM"}),
+    ("Agents.HeurAWSAgent.HeurAWSAgent", {"model": "meta.llama3-3-70b-instruct-v1:0", "prompt_size": "SMALL"}),
     # También puedes usar None para que use el modelo por defecto definido en el agente.
     # Se pueden poner varias configuraciones del mismo agente para comparar modelos.
 ]

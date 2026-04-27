@@ -5,6 +5,7 @@ import importlib
 import itertools
 import csv
 import traceback
+from tqdm import tqdm
 
 from Agents.RandomAgent import RandomAgent as ra
 from Agents.AdrianHerasAgent import AdrianHerasAgent as aha 
@@ -19,14 +20,18 @@ from Agents.TristanAgent import TristanAgent as ta
 from Managers.GameDirector import GameDirector
 from Agents.HeuristicAgent import HeuristicAgent as ha
 
-BENCHMARK_AGENTS = [ra, aha, apa, apja, cza, ca, ea, paaa, sa, ta]
-
-n_matches_per_permutation = 10
+BENCHMARK_AGENTS = [aha, apja, ca, paaa, ta, ha]
+n_matches_per_permutation = 1
 porcentaje_workers = 0.95
 
 # Agentes a evaluar: (ruta_clase, params)
 agentes_a_evaluar = [
-   ("Agents.HeuristicAgent.HeuristicAgent", None),
+    ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "qwen3.5:4b", "prompt_size": "MEDIUM"}),
+    ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "qwen3.5:4b", "prompt_size": "SMALL"}),
+    ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "gemma3:4b", "prompt_size": "MEDIUM"}),
+    ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "gemma3:4b", "prompt_size": "SMALL"}),
+    ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "llama3.1:8b", "prompt_size": "MEDIUM"}),
+    ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "llama3.1:8b", "prompt_size": "SMALL"}),
     # También puedes usar None para que use el modelo por defecto definido en el agente.
     # Se pueden poner varias configuraciones del mismo agente para comparar modelos.
 ]
@@ -95,8 +100,9 @@ def simulate_match(opponents, position, agente_alumno_clase, params=None):
 if __name__ == '__main__':
     results = {agent+str(params) if params is not None else agent: {'wins': 0, 'points': 0, 'rank_sum': 0} for agent, params in agentes_a_evaluar}
 
-    workers_a_utilizar = 1
-    print(f"Workers a utilizar: {workers_a_utilizar}")
+    total_workers = os.cpu_count() or 1
+    workers_a_utilizar = max(1, int(total_workers * porcentaje_workers))
+    print(f"Workers a utilizar ({porcentaje_workers*100}%): {workers_a_utilizar}")
 
     start_time = time.time()
 
@@ -105,7 +111,6 @@ if __name__ == '__main__':
     coste_medio_partida_segundos = 0.004
     print(f"Total de partidas a simular: {total_matches}. Tiempo estimado: {total_matches * coste_medio_partida_segundos / 60:.2f} minutos")
 
-    matches_done = 0
     batch_size = 10000
     futures_batch = []
     resumen_csv = []
@@ -120,12 +125,23 @@ if __name__ == '__main__':
                             yield (list(perm), pos, agente_cls, params, agente_path)
 
 
-        for perm, pos, agente_cls, params, agente_path in task_generator():
-            fut = executor.submit(simulate_match, perm, pos, agente_cls, params=params)
-            futures_batch.append((fut, agente_path+str(params) if params is not None else agente_path))
+        with tqdm(total=total_matches, desc="Partidas", unit="partida") as progress_bar:
+            for perm, pos, agente_cls, params, agente_path in task_generator():
+                fut = executor.submit(simulate_match, perm, pos, agente_cls, params=params)
+                futures_batch.append((fut, agente_path+str(params) if params is not None else agente_path))
 
+                if len(futures_batch) >= batch_size:
+                    futures_dict = {fut: agente_alumno for fut, agente_alumno in futures_batch}
+                    for fut in concurrent.futures.as_completed(futures_dict):
+                        victory, points, rank = fut.result()
+                        agent = futures_dict[fut]
+                        results[agent]['wins'] += victory
+                        results[agent]['points'] += points
+                        results[agent]['rank_sum'] += rank
+                        progress_bar.update(1)
+                    futures_batch = []
 
-            if len(futures_batch) >= batch_size:
+            if futures_batch:
                 futures_dict = {fut: agente_alumno for fut, agente_alumno in futures_batch}
                 for fut in concurrent.futures.as_completed(futures_dict):
                     victory, points, rank = fut.result()
@@ -133,22 +149,7 @@ if __name__ == '__main__':
                     results[agent]['wins'] += victory
                     results[agent]['points'] += points
                     results[agent]['rank_sum'] += rank
-                    matches_done += 1
-                    if matches_done % 10000 == 0 or matches_done == total_matches:
-                        print(f"Progreso: {matches_done}/{total_matches} partidas completadas ({matches_done/total_matches:.2%})")
-                futures_batch = []
-
-        if futures_batch:
-            futures_dict = {fut: agente_alumno for fut, agente_alumno in futures_batch}
-            for fut in concurrent.futures.as_completed(futures_dict):
-                victory, points, rank = fut.result()
-                agent = futures_dict[fut]
-                results[agent]['wins'] += victory
-                results[agent]['points'] += points
-                results[agent]['rank_sum'] += rank
-                matches_done += 1
-                if matches_done % 10000 == 0 or matches_done == total_matches:
-                    print(f"Progreso: {matches_done}/{total_matches} partidas completadas ({matches_done/total_matches:.2%})")
+                    progress_bar.update(1)
 
     partidas_por_agente = len(permutations) * 4 * n_matches_per_permutation
     print("\nResultados ordenados por ratio de victorias:")

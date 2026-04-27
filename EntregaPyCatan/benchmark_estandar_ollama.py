@@ -19,14 +19,18 @@ from Agents.TristanAgent import TristanAgent as ta
 from Managers.GameDirector import GameDirector
 from Agents.HeuristicAgent import HeuristicAgent as ha
 
-BENCHMARK_AGENTS = [ra, aha, apa, apja, cza, ca, ea, paaa, sa, ta]
-
-n_matches_per_permutation = 10
+BENCHMARK_AGENTS = [aha, apja, ca, paaa, ta, ha]
+n_matches_per_permutation = 1
 porcentaje_workers = 0.95
 
 # Agentes a evaluar: (ruta_clase, params)
 agentes_a_evaluar = [
-   ("Agents.HeuristicAgent.HeuristicAgent", None),
+    ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "qwen3.5:4b", "prompt_size": "MEDIUM"}),
+    ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "qwen3.5:4b", "prompt_size": "SMALL"}),
+    ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "gemma3:4b", "prompt_size": "MEDIUM"}),
+    ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "gemma3:4b", "prompt_size": "SMALL"}),
+    ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "llama3.1:8b", "prompt_size": "MEDIUM"}),
+    ("Agents.HeurOllamaAgent.HeurOllamaAgent", {"model": "llama3.1:8b", "prompt_size": "SMALL"}),
     # También puedes usar None para que use el modelo por defecto definido en el agente.
     # Se pueden poner varias configuraciones del mismo agente para comparar modelos.
 ]
@@ -95,8 +99,9 @@ def simulate_match(opponents, position, agente_alumno_clase, params=None):
 if __name__ == '__main__':
     results = {agent+str(params) if params is not None else agent: {'wins': 0, 'points': 0, 'rank_sum': 0} for agent, params in agentes_a_evaluar}
 
-    workers_a_utilizar = 1
-    print(f"Workers a utilizar: {workers_a_utilizar}")
+    total_workers = os.cpu_count() or 1
+    workers_a_utilizar = max(1, int(total_workers * porcentaje_workers))
+    print(f"Workers a utilizar ({porcentaje_workers*100}%): {workers_a_utilizar}")
 
     start_time = time.time()
 
